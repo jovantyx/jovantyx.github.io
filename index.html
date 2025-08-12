@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Portfolio</title>
+    <title>Jovan's page</title>
     <style>
         /* Global styles for a clean and modern look */
         * {
@@ -17,27 +17,28 @@
             background-color: #f4f7f6; /* Light gray background for the entire page */
             color: #333; /* Dark gray text color */
             line-height: 1.6; /* Improved readability for paragraphs */
-            overflow: hidden; /* Hide scrollbars as sections take full screen */
+            height: 100vh; /* Make body take full viewport height to enable scrolling */
+            overflow-y: scroll; /* Allow vertical scrolling */
+            scroll-snap-type: y mandatory; /* Enable snapping to sections vertically */
+            scroll-behavior: smooth; /* Smooth scrolling for programmatic scrolls */
         }
 
         /* Styles for each section (About Myself, Education) */
         .section {
             width: 100vw; /* Occupy full viewport width */
-            height: 100vh; /* Occupy full viewport height */
+            min-height: 100vh; /* Ensure section takes at least full viewport height */
             display: flex; /* Use flexbox for centering content */
             flex-direction: column; /* Arrange items vertically */
             justify-content: center; /* Center content vertically */
             align-items: center; /* Center content horizontally */
             padding: 2rem; /* Add some padding around the content */
-            position: fixed; /* Fix sections to the viewport */
-            top: 0;
-            left: 0;
+            scroll-snap-align: start; /* Snap to the start of the section when scrolling */
             opacity: 0; /* Initially hidden */
             visibility: hidden; /* Prevent interaction when hidden */
             transition: opacity 1s ease-in-out, visibility 1s ease-in-out; /* Smooth fade transition */
         }
 
-        /* Active section state */
+        /* Active section state - visible when in view */
         .section.active {
             opacity: 1; /* Fully visible */
             visibility: visible; /* Allow interaction */
@@ -74,6 +75,7 @@
             transform: translateX(-50%); /* Adjust for true centering */
             display: flex; /* Use flexbox for dot layout */
             gap: 1rem; /* Space between dots */
+            z-index: 100; /* Ensure pagination is above sections */
         }
 
         .pagination button {
@@ -95,7 +97,7 @@
 <body>
 
     <!-- About Myself Section -->
-    <section id="about" class="section active">
+    <section id="about" class="section">
         <div class="section-content">
             <h1>About Myself</h1>
             <p>I am a passionate and dedicated individual with a strong background in web development. My journey in technology began with a curiosity for how things work, and it has evolved into a career driven by creating elegant and efficient solutions. I thrive on challenges and am constantly learning new technologies to stay at the forefront of the industry. When I'm not coding, I enjoy hiking, reading sci-fi novels, and exploring new cafes.</p>
@@ -115,7 +117,7 @@
 
     <!-- Pagination/Navigation Dots -->
     <div class="pagination">
-        <button data-section="about" class="active"></button>
+        <button data-section="about"></button>
         <button data-section="education"></button>
     </div>
 
@@ -123,63 +125,82 @@
         // Select all section elements and pagination buttons
         const sections = document.querySelectorAll('.section');
         const paginationButtons = document.querySelectorAll('.pagination button');
-        let currentSectionIndex = 0; // Keep track of the currently active section
+        // This variable will hold the index of the section currently most visible in the viewport
+        let currentActiveSectionIndex = 0;
 
         /**
-         * Updates the visibility and active state of sections and pagination buttons.
-         * Fades out the current section and fades in the new active section.
+         * Updates the active state of pagination buttons.
+         * @param {number} activeIndex - The index of the section that is currently active.
          */
-        function updateSections() {
-            sections.forEach((section, index) => {
-                if (index === currentSectionIndex) {
-                    // Add 'active' class to show the current section
-                    section.classList.add('active');
-                } else {
-                    // Remove 'active' class to hide other sections
-                    section.classList.remove('active');
-                }
-            });
-
+        function updatePagination(activeIndex) {
             paginationButtons.forEach((button, index) => {
-                if (index === currentSectionIndex) {
-                    // Add 'active' class to highlight the current pagination dot
+                if (index === activeIndex) {
                     button.classList.add('active');
                 } else {
-                    // Remove 'active' class from other dots
                     button.classList.remove('active');
                 }
             });
         }
 
-        // Add click event listeners to pagination buttons for navigation
+        // Create an Intersection Observer to detect when sections enter/exit the viewport
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const sectionId = entry.target.id;
+                const sectionIndex = Array.from(sections).findIndex(s => s.id === sectionId);
+
+                // If a section is intersecting (visible) and a significant portion is shown (e.g., 70%)
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+                    entry.target.classList.add('active'); // Add 'active' class to fade it in
+                    currentActiveSectionIndex = sectionIndex; // Update the global index for keyboard navigation
+                    updatePagination(currentActiveSectionIndex); // Update pagination dots
+                } else {
+                    entry.target.classList.remove('active'); // Remove 'active' class to fade it out
+                }
+            });
+        }, {
+            threshold: 0.7 // Trigger the callback when 70% of the section is visible
+        });
+
+        // Start observing each section
+        sections.forEach(section => {
+            observer.observe(section);
+        });
+
+        // Add click event listeners to pagination buttons for direct navigation
         paginationButtons.forEach(button => {
             button.addEventListener('click', () => {
-                // Get the 'data-section' attribute to identify the target section
-                const targetSection = button.dataset.section;
-                // Find the index of the target section in the 'sections' NodeList
-                const targetIndex = Array.from(sections).findIndex(section => section.id === targetSection);
-                // Update the current section index
-                currentSectionIndex = targetIndex;
-                // Call updateSections to transition
-                updateSections();
+                const targetSectionId = button.dataset.section; // Get the ID of the target section
+                const targetSection = document.getElementById(targetSectionId);
+                if (targetSection) {
+                    // Smoothly scroll the target section into view
+                    targetSection.scrollIntoView({ behavior: 'smooth' });
+                }
             });
         });
 
-        // Optional: Add keyboard navigation for convenience
+        // Implement keyboard navigation (Arrow Up/Down or Left/Right)
         document.addEventListener('keydown', (e) => {
+            let nextIndex = currentActiveSectionIndex; // Start from the current active section
+
             if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
                 // Move to the next section, looping back to the first if at the end
-                currentSectionIndex = (currentSectionIndex + 1) % sections.length;
-                updateSections();
+                nextIndex = (currentActiveSectionIndex + 1) % sections.length;
             } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
                 // Move to the previous section, looping to the last if at the beginning
-                currentSectionIndex = (currentSectionIndex - 1 + sections.length) % sections.length;
-                updateSections();
+                nextIndex = (currentActiveSectionIndex - 1 + sections.length) % sections.length;
+            }
+
+            // If a different section is targeted, scroll to it
+            if (nextIndex !== currentActiveSectionIndex) {
+                sections[nextIndex].scrollIntoView({ behavior: 'smooth' });
+                // The Intersection Observer will handle updating `currentActiveSectionIndex`
+                // and the pagination dots once the scroll animation completes.
             }
         });
 
-        // Initialize the sections when the page loads
-        updateSections();
+        // Initial check: when the page loads, ensure the first visible section is marked active
+        // and its pagination dot is highlighted. This is handled by the IntersectionObserver
+        // once it starts observing the elements.
     </script>
 
 </body>
